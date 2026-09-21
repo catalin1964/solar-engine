@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Calculator sistem fotovoltaic</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* Paleta e derivata din subiect: auriu = soare inalt (productie),
+   albastru rece = soare jos (golul de iarna). Culoarea de actiune
+   vine din configuratia instalatorului. */
+:root{
+  --ink:#17212E; --ink-soft:#5C6B7E; --ink-faint:#8896A6;
+  --paper:#fff; --paper-2:#F4F6F8; --line:#DDE3EA;
+  --sun:#E0A030; --sun-soft:#F5DCAE;
+  --frost:#4A6FA5; --frost-soft:#C9D6E8;
+  --brand:#0F6E6E; --brand-ink:#fff;
+  --r:6px;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0; background:var(--paper); color:var(--ink);
+  font:400 16px/1.5 "IBM Plex Sans",system-ui,sans-serif;
+  font-variant-numeric:tabular-nums;
+  -webkit-font-smoothing:antialiased;
+  /* padding pentru telefoane cu notch/gesture bar, in orientare peisaj */
+  padding-left:env(safe-area-inset-left); padding-right:env(safe-area-inset-right);
+}
+/* Safari (desktop si iOS) are nevoie explicit de asta pentru orice
+   fundal de sub 16px sa nu forteze zoom la focus, si pentru tap-uri
+   mai raspunzatoare pe telefon - fara "flash" gri intarziat la atingere. */
+button,input,select,textarea,.opt,.goal,.compass button{
+  -webkit-tap-highlight-color:transparent; touch-action:manipulation;
+}
+input,select,textarea{font-size:16px}
+.wrap{max-width:660px;margin:0 auto;padding:28px 20px 48px}
+.wrap.wide{max-width:820px}
+
+/* --- antet --- */
+.head{display:flex;align-items:baseline;justify-content:space-between;gap:16px;margin-bottom:28px}
+.head h1{font-size:21px;font-weight:600;margin:0;letter-spacing:-.01em}
+.head .by{font-size:14px;color:var(--ink-faint);display:flex;align-items:center;gap:8px}
+.head .by img{height:28px;max-width:140px;object-fit:contain;display:block}
+
+/* --- pasi: numerotarea e justificata, chiar e o secventa --- */
+.steps{display:flex;gap:2px;margin-bottom:30px;border-bottom:1px solid var(--line)}
+.steps b{
+  font:500 13px/1 "IBM Plex Sans",sans-serif;color:var(--ink-faint);
+  padding:0 0 10px;margin-right:26px;display:flex;gap:7px;align-items:center;
+  border-bottom:2px solid transparent;margin-bottom:-1px;
+}
+.steps b.on{color:var(--ink);border-bottom-color:var(--brand)}
+.steps b.done{color:var(--ink-soft)}
+.steps i{
+  font-style:normal;width:19px;height:19px;border-radius:50%;
+  display:grid;place-items:center;font-size:11px;
+  background:var(--paper-2);color:var(--ink-faint);
+}
+.steps b.on i{background:var(--brand);color:var(--brand-ink)}
+.steps b.done i{background:var(--frost-soft);color:var(--ink-soft)}
+
+/* --- campuri --- */
+.q{margin-bottom:26px}
+.q>label{display:block;font-weight:500;margin-bottom:3px}
+.hint{font-size:13.5px;color:var(--ink-soft);margin:0 0 10px}
+input[type=number],input[type=text],select{
+  width:100%;padding:10px 12px;font:inherit;font-variant-numeric:tabular-nums;
+  border:1px solid var(--line);border-radius:var(--r);background:var(--paper);color:var(--ink);
+}
+input:focus,select:focus,button:focus-visible{outline:2px solid var(--brand);outline-offset:1px}
+.row{display:flex;gap:10px}
+.row>*{flex:1}
+
+/* --- optiuni --- */
+.opts{display:flex;flex-wrap:wrap;gap:8px}
+.opt{
+  padding:9px 14px;border:1px solid var(--line);border-radius:var(--r);
+  background:var(--paper);font:inherit;color:var(--ink);cursor:pointer;
+}
+.opt:hover{border-color:var(--ink-faint)}
+.opt.sel{border-color:var(--brand);background:var(--brand);color:var(--brand-ink)}
+
+/* --- busola: 3x3, orientata ca o busola reala --- */
+.compass{display:grid;grid-template-columns:repeat(3,64px);gap:6px}
+.compass button{
+  padding:14px 0;border:1px solid var(--line);border-radius:var(--r);
+  background:var(--paper);font:500 13px "IBM Plex Sans",sans-serif;color:var(--ink);cursor:pointer;
+}
+.compass button.sel{border-color:var(--brand);background:var(--brand);color:var(--brand-ink)}
+.compass .mid{background:var(--paper-2);border-style:dashed;color:var(--ink-faint);cursor:default}
+.compass .mid:hover{border-color:var(--line)}
+
+/* --- bife --- */
+.check{display:flex;align-items:flex-start;gap:10px;padding:11px 0;border-top:1px solid var(--line)}
+.check:last-of-type{border-bottom:1px solid var(--line)}
+.check input{margin:4px 0 0;width:17px;height:17px;accent-color:var(--brand);flex:none}
+.check span{font-size:13.5px;color:var(--ink-soft);display:block}
+
+/* --- scopuri --- */
+.goal{
+  display:block;width:100%;text-align:left;padding:15px 16px;margin-bottom:9px;
+  border:1px solid var(--line);border-radius:var(--r);background:var(--paper);
+  font:inherit;color:var(--ink);cursor:pointer;
+}
+.goal:hover{border-color:var(--ink-faint)}
+.goal.sel{border-color:var(--brand);box-shadow:inset 3px 0 0 var(--brand)}
+.goal b{display:block;font-weight:500;margin-bottom:2px}
+.goal span{font-size:13.5px;color:var(--ink-soft)}
+
+/* --- navigare --- */
+.nav{display:flex;justify-content:space-between;gap:12px;margin-top:32px}
+.btn{
+  padding:11px 22px;border-radius:var(--r);border:1px solid var(--brand);
+  background:var(--brand);color:var(--brand-ink);font:500 16px "IBM Plex Sans",sans-serif;cursor:pointer;
+}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.btn.ghost{background:transparent;color:var(--ink-soft);border-color:var(--line)}
+
+/* --- rezultat --- */
+.verdict{border-left:3px solid var(--brand);padding:2px 0 2px 16px;margin-bottom:30px}
+.verdict .kwp{font-size:32px;font-weight:600;letter-spacing:-.02em;line-height:1.15}
+.verdict p{margin:4px 0 0;color:var(--ink-soft);font-size:14.5px}
+
+.warn{border-left-color:var(--frost);background:var(--paper-2);padding:16px 18px;border-radius:0 var(--r) var(--r) 0}
+.warn h2{font-size:17px;margin:0 0 8px;font-weight:600}
+.warn p{margin:0 0 10px;color:var(--ink);font-size:14.5px}
+.warn p:last-child{margin-bottom:0}
+
+.figures{display:flex;flex-wrap:wrap;gap:26px 34px;margin:0 0 30px;padding:16px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.fig .n{font-size:20px;font-weight:600}
+.fig .l{font-size:13px;color:var(--ink-soft);margin-top:1px}
+
+h2.sec{font-size:15px;font-weight:600;margin:0 0 4px}
+p.sec{font-size:13.5px;color:var(--ink-soft);margin:0 0 14px}
+
+.legend{display:flex;gap:18px;font-size:13px;color:var(--ink-soft);margin:10px 0 0}
+.legend i{display:inline-block;width:11px;height:11px;border-radius:2px;margin-right:6px;vertical-align:-1px}
+
+table{width:100%;border-collapse:collapse;font-size:14.5px;margin-bottom:8px}
+th,td{padding:8px 0;text-align:left;border-bottom:1px solid var(--line)}
+th{font-weight:500;font-size:13px;color:var(--ink-soft)}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+tr.tot td{font-weight:600;border-bottom:none;padding-top:11px}
+
+.foot{margin-top:34px;padding-top:16px;border-top:1px solid var(--line);font-size:12.5px;color:var(--ink-faint)}
+.err{padding:14px 16px;background:var(--paper-2);border-left:3px solid var(--frost);border-radius:0 var(--r) var(--r) 0;margin-bottom:20px;font-size:14.5px}
+.load{padding:50px 0;text-align:center;color:var(--ink-soft)}
+.hide{display:none}
+
+/* --- formular de oferta --- */
+.form{border-top:1px solid var(--line);margin-top:34px;padding-top:26px}
+.form h2{font-size:17px;font-weight:600;margin:0 0 4px}
+.form>p{font-size:13.5px;color:var(--ink-soft);margin:0 0 20px}
+.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.fgrid .full{grid-column:1/-1}
+.f label{display:block;font-size:13.5px;font-weight:500;margin-bottom:4px}
+.f input,.f textarea{width:100%;padding:10px 12px;font:inherit;border:1px solid var(--line);
+  border-radius:var(--r);background:var(--paper);color:var(--ink)}
+.f textarea{min-height:76px;resize:vertical}
+.f .bad{border-color:var(--frost)}
+.gdpr{display:flex;gap:10px;align-items:flex-start;margin:18px 0 0;
+  padding:14px 16px;background:var(--paper-2);border-radius:var(--r)}
+.gdpr input{margin:3px 0 0;width:17px;height:17px;accent-color:var(--brand);flex:none}
+.gdpr span{font-size:12.5px;line-height:1.55;color:var(--ink-soft)}
+.done{border-left:3px solid var(--brand);padding:4px 0 4px 16px}
+.done h2{font-size:19px;margin:0 0 6px;font-weight:600}
+.done p{margin:0 0 8px;color:var(--ink-soft);font-size:14.5px}
+
+/* --- tiparire / salvare ca PDF --- */
+/* Foaia asta e piesa care circula: ajunge la sot, la banca, la verificator,
+   iar sigla instalatorului merge cu ea. */
+.printonly{display:none}
+@media print{
+  @page{size:A4;margin:14mm 14mm 16mm}
+  body{font-size:11pt}
+  .wrap,.wrap.wide{max-width:none;padding:0}
+  .steps,.nav,.form,.head .by{display:none!important}
+  .printonly{display:block}
+  .print-head{display:flex;justify-content:space-between;align-items:baseline;
+    border-bottom:1.5px solid var(--ink);padding-bottom:8px;margin-bottom:18px}
+  .print-head b{font-size:15pt}
+  .print-head span{font-size:9.5pt;color:var(--ink-soft)}
+  .figures{page-break-inside:avoid}
+  table{page-break-inside:avoid}
+  svg{page-break-inside:avoid;max-width:100%}
+  .foot{page-break-inside:avoid;font-size:8.5pt}
+  a{text-decoration:none;color:inherit}
+  /* Chrome nu tipareste fundaluri decat daca omul bifeaza "Background
+     graphics", iar bifa e stinsa implicit. Barele graficului sunt SVG si
+     se vad oricum, dar patratelele din legenda sunt fundaluri CSS - fara
+     asta, legenda ramane fara cheia de culoare si graficul devine greu de
+     citit exact pe foaia care circula. */
+  .legend i{print-color-adjust:exact;-webkit-print-color-adjust:exact;
+    forced-color-adjust:none}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+@media (max-width:560px){.compass{grid-template-columns:repeat(3,1fr)}.figures{gap:18px 26px}}
+</style>
+</head>
+<body>
+<div class="wrap" id="app">
+  <div class="printonly print-head" id="printHead"></div>
+  <div class="head">
+    <h1 id="titlu">Cât fotovoltaic îți trebuie?</h1>
+    <div class="by" id="brand"></div>
+  </div>
+
+  <div class="steps" id="steps">
+    <b class="on" data-s="1"><i>1</i>Locație</b>
+    <b data-s="2"><i>2</i>Consum</b>
+    <b data-s="3"><i>3</i>Scop</b>
+  </div>
+
+  <div id="panou"></div>
+</div>
+
+<script>
+const API = new URLSearchParams(location.search).get('api') || '';
+const TENANT = new URLSearchParams(location.search).get('t') || 'demo';
+
+const ORASE = {
+  'Alba Iulia':[46.07,23.58,2], 'Alexandria':[43.98,25.33,2], 'Arad':[46.18,21.32,2],
+  'Bacău':[46.57,26.91,2], 'Baia Mare':[47.66,23.57,2], 'Bistrița':[47.13,24.49,2],
+  'Botoșani':[47.75,26.67,2], 'Brăila':[45.27,27.96,2], 'Brașov':[45.66,25.61,2],
+  'București':[44.43,26.10,2], 'Buzău':[45.15,26.82,2], 'Călărași':[44.20,27.33,2],
+  'Cluj-Napoca':[46.77,23.60,2], 'Constanța':[44.18,28.63,2], 'Craiova':[44.32,23.80,2],
+  'Deva':[45.88,22.90,2], 'Drobeta-Turnu Severin':[44.63,22.66,2], 'Focșani':[45.70,27.19,2],
+  'Galați':[45.44,28.05,2], 'Giurgiu':[43.90,25.97,2], 'Iași':[47.16,27.59,2],
+  'Miercurea Ciuc':[46.36,25.80,2], 'Oradea':[47.05,21.92,2], 'Piatra Neamț':[46.93,26.37,2],
+  'Pitești':[44.86,24.87,2], 'Ploiești':[44.94,26.02,2], 'Râmnicu Vâlcea':[45.10,24.37,2],
+  'Reșița':[45.30,21.89,2], 'Satu Mare':[47.79,22.89,2], 'Sfântu Gheorghe':[45.86,25.79,2],
+  'Sibiu':[45.79,24.15,2], 'Slatina':[44.43,24.36,2], 'Slobozia':[44.56,27.37,2],
+  'Suceava':[47.65,26.25,2], 'Târgoviște':[44.93,25.46,2], 'Târgu Jiu':[45.03,23.28,2],
+  'Târgu Mureș':[46.54,24.56,2], 'Timișoara':[45.76,21.23,2], 'Tulcea':[45.18,28.80,2],
+  'Vaslui':[46.64,27.73,2], 'Zalău':[47.19,23.06,2],
+};
+const LUNI = ['Ian','Feb','Mar','Apr','Mai','Iun','Iul','Aug','Sep','Oct','Noi','Dec'];
+
+const S = {
+  pas:1, oras:'București', lat:44.43, lon:26.10, utcOffset:2,
+  orientation:'S', tiltPreset:'medie',
+  mod:'factura', factura:400, annualKwh:4500,
+  archetype:'casa_goala_zi', pc:false, ev:false, acasaZi:false,
+  topology:'ongrid', tenant:null, rez:null,
+};
+
+const $ = h => { const d=document.createElement('div'); d.innerHTML=h.trim(); return d.firstChild; };
+const nr = n => Math.round(n).toLocaleString('ro-RO');
+const panou = document.getElementById('panou');
+
+fetch(API+'/api/tenant/'+TENANT).then(r=>r.json()).then(t=>{
+  S.tenant=t;
+  document.documentElement.style.setProperty('--brand', t.culoare);
+  const brand = document.getElementById('brand');
+  if(t.logoUrl){
+    const img = new Image();
+    // Daca logo-ul nu se incarca (link mort, CORS), revenim la text -
+    // mai bine un nume corect decat o iconita sparta intr-un demo de vanzare.
+    const numeText = t.areLeadReal ? t.nume : 'Instalator';
+    img.onerror = () => { brand.textContent = numeText; };
+    img.onload = () => { brand.replaceChildren(img); };
+    img.src = t.logoUrl; img.alt = numeText;
+  } else {
+    brand.textContent = t.areLeadReal ? t.nume : 'Instalator';
+  }
+}).catch(()=>{}).finally(deseneaza);
+
+function setPas(n){ S.pas=n; document.querySelectorAll('#steps b').forEach(b=>{
+  const s=+b.dataset.s; b.className = s===n?'on':(s<n?'done':''); }); deseneaza(); }
+
+/* ---------------- pasii ---------------- */
+function pas1(){
+  const p = $(`<div>
+    <div class="q">
+      <label for="oras">Unde e clădirea?</label>
+      <p class="hint">Alege orașul cel mai apropiat. Radiația solară diferă vizibil de la o zonă la alta.</p>
+      <select id="oras">${Object.keys(ORASE).map(o=>`<option${o===S.oras?' selected':''}>${o}</option>`).join('')}</select>
+    </div>
+    <div class="q">
+      <label>Încotro e orientat acoperișul?</label>
+      <p class="hint">Partea pe care s-ar monta panourile. Sudul produce cel mai mult.</p>
+      <div class="compass">
+        <button data-o="NV">NV</button><button data-o="N">N</button><button data-o="NE">NE</button>
+        <button data-o="V">V</button><button class="mid" disabled>·</button><button data-o="E">E</button>
+        <button data-o="SV">SV</button><button data-o="S">S</button><button data-o="SE">SE</button>
+      </div>
+    </div>
+    <div class="q">
+      <label>Cât de înclinat e acoperișul?</label>
+      <div class="opts" id="tilt">
+        <button class="opt" data-t="mica">Aproape plat</button>
+        <button class="opt" data-t="medie">Înclinare obișnuită</button>
+        <button class="opt" data-t="mare">Foarte înclinat</button>
+      </div>
+    </div>
+    <div class="nav"><span></span><button class="btn" id="n1">Continuă</button></div>
+  </div>`);
+
+  p.querySelector('#oras').onchange = e => {
+    S.oras=e.target.value; [S.lat,S.lon,S.utcOffset]=ORASE[S.oras];
+  };
+  p.querySelectorAll('.compass button[data-o]').forEach(b=>{
+    if(b.dataset.o===S.orientation) b.classList.add('sel');
+    b.onclick=()=>{ S.orientation=b.dataset.o;
+      p.querySelectorAll('.compass button[data-o]').forEach(x=>x.classList.remove('sel')); b.classList.add('sel'); };
+  });
+  p.querySelectorAll('#tilt .opt').forEach(b=>{
+    if(b.dataset.t===S.tiltPreset) b.classList.add('sel');
+    b.onclick=()=>{ S.tiltPreset=b.dataset.t;
+      p.querySelectorAll('#tilt .opt').forEach(x=>x.classList.remove('sel')); b.classList.add('sel'); };
+  });
+  p.querySelector('#n1').onclick=()=>setPas(2);
+  return p;
+}
+
+function pas2(){
+  const m = S.tenant?.moneda||'RON';
+  const p = $(`<div>
+    <div class="q">
+      <label>Cât consumi acum?</label>
+      <p class="hint">Dacă nu știi consumul anual, factura medie lunară e suficientă.</p>
+      <div class="opts" style="margin-bottom:10px" id="mod">
+        <button class="opt" data-m="factura">Știu factura lunară</button>
+        <button class="opt" data-m="anual">Știu consumul anual</button>
+      </div>
+      <div class="row">
+        <input type="number" id="val" min="0" step="10">
+        <div style="flex:0 0 90px;display:grid;place-items:center start;color:var(--ink-soft);font-size:14px" id="um"></div>
+      </div>
+    </div>
+    <div class="q">
+      <label>Ce fel de clădire e?</label>
+      <div class="opts" id="arh">
+        <button class="opt" data-a="apartament">Apartament</button>
+        <button class="opt" data-a="casa_goala_zi">Casă</button>
+        <button class="opt" data-a="firma_9_17">Firmă mică</button>
+        <button class="opt" data-a="continuu">Activitate non-stop</button>
+      </div>
+    </div>
+    <div class="q">
+      <label>Bifează ce ți se potrivește</label>
+      <label class="check"><input type="checkbox" id="cPc"><span><b style="font-weight:500;color:var(--ink)">Am pompă de căldură</b><br>Iarna consumul crește mult, exact când producția e minimă.</span></label>
+      <label class="check"><input type="checkbox" id="cEv"><span><b style="font-weight:500;color:var(--ink)">Am mașină electrică</b><br>Adaugă în jur de 2.500 kWh pe an.</span></label>
+      <label class="check"><input type="checkbox" id="cZi"><span><b style="font-weight:500;color:var(--ink)">E cineva acasă în timpul zilei</b><br>Consumul se mută spre orele cu soare.</span></label>
+    </div>
+    <div class="nav"><button class="btn ghost" id="b2">Înapoi</button><button class="btn" id="n2">Continuă</button></div>
+  </div>`);
+
+  const val=p.querySelector('#val'), um=p.querySelector('#um');
+  const sync=()=>{ const f=S.mod==='factura';
+    um.textContent = f?m+' / lună':'kWh / an'; val.value = f?S.factura:S.annualKwh;
+    p.querySelectorAll('#mod .opt').forEach(b=>b.classList.toggle('sel', b.dataset.m===S.mod)); };
+  p.querySelectorAll('#mod .opt').forEach(b=> b.onclick=()=>{ S.mod=b.dataset.m; sync(); });
+  val.oninput=()=>{ const v=+val.value; if(S.mod==='factura') S.factura=v; else S.annualKwh=v; };
+  sync();
+
+  p.querySelectorAll('#arh .opt').forEach(b=>{
+    const a = S.archetype==='casa_ocupata_zi'?'casa_goala_zi':S.archetype;
+    if(b.dataset.a===a) b.classList.add('sel');
+    b.onclick=()=>{ S.archetype=b.dataset.a;
+      p.querySelectorAll('#arh .opt').forEach(x=>x.classList.remove('sel')); b.classList.add('sel'); };
+  });
+  const cPc=p.querySelector('#cPc'), cEv=p.querySelector('#cEv'), cZi=p.querySelector('#cZi');
+  cPc.checked=S.pc; cEv.checked=S.ev; cZi.checked=S.acasaZi;
+  cPc.onchange=()=>S.pc=cPc.checked; cEv.onchange=()=>S.ev=cEv.checked; cZi.onchange=()=>S.acasaZi=cZi.checked;
+
+  p.querySelector('#b2').onclick=()=>setPas(1);
+  p.querySelector('#n2').onclick=()=>setPas(3);
+  return p;
+}
+
+function pas3(){
+  const p = $(`<div>
+    <div class="q">
+      <label>Ce vrei să obții?</label>
+      <p class="hint">De aici rezultă dacă ai nevoie de baterii și cât de mari.</p>
+      <button class="goal" data-t="ongrid"><b>Să plătesc mai puțin la curent</b><span>Rămâi legat la rețea. Cea mai ieftină variantă și cea care se amortizează cel mai repede.</span></button>
+      <button class="goal" data-t="hybrid"><b>Să am curent și când cade rețeaua</b><span>Baterii care acoperă consumul seara și în timpul penelor.</span></button>
+      <button class="goal" data-t="offgrid"><b>Nu am racord la rețea</b><span>Sistem complet independent. Îți spunem sincer dacă e realizabil la locația ta.</span></button>
+    </div>
+    <div class="nav"><button class="btn ghost" id="b3">Înapoi</button><button class="btn" id="n3">Calculează</button></div>
+  </div>`);
+  p.querySelectorAll('.goal').forEach(b=>{
+    if(b.dataset.t===S.topology) b.classList.add('sel');
+    b.onclick=()=>{ S.topology=b.dataset.t;
+      p.querySelectorAll('.goal').forEach(x=>x.classList.remove('sel')); b.classList.add('sel'); };
+  });
+  p.querySelector('#b3').onclick=()=>setPas(2);
+  p.querySelector('#n3').onclick=calculeaza;
+  return p;
+}
+
+/* ---------------- calcul ---------------- */
+async function calculeaza(){
+  panou.replaceChildren($('<div class="load">Se calculează oră cu oră, pe un an întreg…</div>'));
+  const body = {
+    tenantId:TENANT, lat:S.lat, lon:S.lon, utcOffset:S.utcOffset,
+    orientation:S.orientation, tiltPreset:S.tiltPreset, topology:S.topology,
+    archetype: S.acasaZi && S.archetype==='casa_goala_zi' ? 'casa_ocupata_zi' : S.archetype,
+    heatPumpKwh: S.pc?4000:0, evKwh: S.ev?2500:0,
+  };
+  if(S.mod==='factura') body.monthlyBill=S.factura; else body.annualKwh=S.annualKwh;
+
+  try{
+    const r = await fetch(API+'/api/size',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const d = await r.json();
+    if(!r.ok) throw new Error(d.eroare||'Calculul nu a reușit.');
+    S.rez=d; document.getElementById('app').classList.add('wide'); rezultat(d);
+  }catch(e){
+    panou.replaceChildren($(`<div><div class="err">${e.message}</div>
+      <div class="nav"><button class="btn ghost" id="bx">Înapoi</button><span></span></div></div>`));
+    panou.querySelector('#bx').onclick=()=>{document.getElementById('app').classList.remove('wide');setPas(3);};
+  }
+}
+
+/* ---------------- grafic lunar ---------------- */
+/* Eroul ecranului. Auriu = productie, contur rece = consum. Unde auriul
+   e mai scurt, aia e luna in care sistemul nu acopera. Decembrie nu se
+   ascunde niciodata intr-o medie anuala. */
+function grafic(lunar){
+  const W=760,H=210,ml=34,mb=24,mt=8;
+  const max=Math.max(...lunar.map(m=>Math.max(m.pv,m.load)))*1.08;
+  const bw=(W-ml)/12, w=bw*0.34;
+  let g='';
+  lunar.forEach((m,i)=>{
+    const x=ml+i*bw+bw/2, hP=(H-mb-mt)*(m.pv/max), hL=(H-mb-mt)*(m.load/max);
+    g+=`<rect x="${x-w-1.5}" y="${H-mb-hP}" width="${w}" height="${hP}" fill="var(--sun)" rx="1.5"/>`;
+    g+=`<rect x="${x+1.5}" y="${H-mb-hL}" width="${w}" height="${hL}" fill="none" stroke="var(--frost)" stroke-width="1.2" rx="1.5"/>`;
+    g+=`<text x="${x}" y="${H-7}" text-anchor="middle" font-size="11" fill="var(--ink-faint)">${LUNI[i]}</text>`;
+  });
+  for(let k=0;k<=2;k++){
+    const v=max*k/2, y=H-mb-(H-mb-mt)*(k/2);
+    g+=`<line x1="${ml}" y1="${y}" x2="${W}" y2="${y}" stroke="var(--line)"/>`;
+    g+=`<text x="${ml-6}" y="${y+4}" text-anchor="end" font-size="10.5" fill="var(--ink-faint)">${nr(v)}</text>`;
+  }
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img"
+    aria-label="Producție și consum, lună cu lună, în kWh">${g}</svg>`;
+}
+
+
+/* ---------------- formularul de oferta ---------------- */
+/* Butonul "Vreau o oferta" e momentul in care instalatorul isi primeste
+   lead-ul. De aici incolo colectam date personale, deci consimtamantul e
+   bifat explicit, nu presupus, si spunem cine le primeste si cat le tine. */
+function rezumatPentruLead(d){
+  const b = { topology:d.topology, lat:S.lat, lon:S.lon, oras:S.oras,
+              consumAnual:d.consum?.anual, moneda:d.tenant?.moneda||'RON',
+              tintaAtinsa:d.tintaAtinsa, feasible:d.feasible };
+  if(d.feasible) Object.assign(b, {
+    kwp:d.sistem.kwp, batteryKwh:d.sistem.batteryKwh,
+    panouri:d.sistem.panouri, invertor:d.sistem.invertor,
+    autosuficienta:d.performanta.autosuficienta,
+    capex:d.economic.capex, amortizareAni:d.economic.amortizareAni,
+  });
+  return b;
+}
+
+function formularOferta(d){
+  const zona = panou.querySelector('#zonaForm');
+  if(!zona || zona.dataset.deschis) return;
+  zona.dataset.deschis = '1';
+  // Numim compania explicit doar daca chiar exista o adresa de lead in
+  // spate - altfel n-ar fi corect sa spunem "X va primi datele tale" cand
+  // de fapt nimeni nu le primeste (tenant de arata la prospecti, fara
+  // rutare reala inca).
+  const nume = d.tenant?.areLeadReal ? (d.tenant?.nume || 'instalator') : 'acest instalator';
+
+  zona.replaceChildren($(`<div class="form f">
+    <h2>Cere o ofertă</h2>
+    <p>Trimitem datele astea către ${nume}, împreună cu dimensionarea de mai sus.</p>
+    <div class="fgrid">
+      <div><label for="lNume">Nume</label><input id="lNume" autocomplete="name"></div>
+      <div><label for="lTel">Telefon</label><input id="lTel" autocomplete="tel" inputmode="tel"></div>
+      <div><label for="lMail">Email</label><input id="lMail" type="email" autocomplete="email"></div>
+      <div><label for="lOras">Localitate</label><input id="lOras" value="${S.oras}"></div>
+      <div class="full"><label for="lMsg">Ceva de adăugat? (opțional)</label><textarea id="lMsg" placeholder="Tip de acoperiș, termen, alte întrebări"></textarea></div>
+    </div>
+    <label class="gdpr"><input type="checkbox" id="lOk">
+      <span>Sunt de acord ca ${nume} să primească datele mele de contact și rezultatul acestui calcul, ca să îmi facă o ofertă. Datele se păstrează un an, apoi se șterg. Îmi pot retrage acordul oricând scriind la ${d.tenant?.email||'adresa de contact'}.</span></label>
+    <div id="lErr"></div>
+    <div class="nav"><span></span><button class="btn" id="lGo">Trimite cererea</button></div>
+  </div>`));
+
+  const g = id => zona.querySelector(id);
+  g('#lNume').focus();
+
+  g('#lGo').onclick = async () => {
+    const corp = {
+      tenantId: TENANT,
+      nume: g('#lNume').value, telefon: g('#lTel').value,
+      email: g('#lMail').value, oras: g('#lOras').value,
+      mesaj: g('#lMsg').value, consimtamant: g('#lOk').checked,
+      rezumat: rezumatPentruLead(d),
+    };
+    ['#lNume','#lTel','#lMail'].forEach(x=>g(x).classList.remove('bad'));
+    g('#lErr').innerHTML = '';
+    g('#lGo').disabled = true; g('#lGo').textContent = 'Se trimite…';
+
+    try{
+      const r = await fetch(API+'/api/lead',{method:'POST',
+        headers:{'Content-Type':'application/json'},body:JSON.stringify(corp)});
+      const res = await r.json();
+      if(!r.ok) throw new Error(res.eroare || 'Cererea nu a putut fi trimisă.');
+      zona.replaceChildren($(`<div class="form"><div class="done">
+        <h2>Cererea a plecat</h2>
+        <p>${nume} are acum datele tale și dimensionarea. Dacă vrei să grăbești, sună la ${res.telefon||''}.</p>
+        <p style="font-size:12.5px">Ține minte că e o estimare: cifrele finale se stabilesc după o evaluare la fața locului.</p>
+        ${res.simulat?`<p style="font-size:12.5px;color:var(--frost)">Mod demonstrativ: cererea nu a fost trimisă nimănui în realitate.</p>`:''}
+      </div></div>`));
+      window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'});
+    }catch(e){
+      g('#lErr').replaceChildren($(`<div class="err" style="margin:16px 0 0">${e.message}</div>`));
+      if(/nume/i.test(e.message)) g('#lNume').classList.add('bad');
+      if(/email|telefon/i.test(e.message)){ g('#lMail').classList.add('bad'); g('#lTel').classList.add('bad'); }
+      g('#lGo').disabled = false; g('#lGo').textContent = 'Trimite cererea';
+    }
+  };
+  window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'});
+}
+
+/* ---------------- antet pentru foaia tiparita ---------------- */
+function pregatestePrint(d){
+  const t = d.tenant || {};
+  // Numele afisat ca text (fallback daca logo-ul nu se incarca, sau text
+  // simplu daca nu exista logo) respecta aceeasi regula ca in formular:
+  // fara adresa de lead reala, nu scriem numele unei firme reale ca si
+  // cum ar fi ea cea care primeste cererea.
+  const numeText = t.areLeadReal ? (t.nume || '') : 'Instalator';
+  const nume = t.logoUrl
+    ? `<img src="${t.logoUrl}" alt="${numeText}" style="height:26px;max-width:150px;object-fit:contain"
+         onerror="this.replaceWith(Object.assign(document.createElement('b'),{textContent:'${numeText.replace(/'/g,"\\'")}'}))">`
+    : `<b>${numeText}</b>`;
+  document.getElementById('printHead').innerHTML =
+    `${nume}<span>${[t.telefon,t.email].filter(Boolean).join(' · ')} — ${new Date().toLocaleDateString('ro-RO')}</span>`;
+}
+
+/* ---------------- rezultat ---------------- */
+function rezultat(d){
+  const m=d.tenant?.moneda||'RON';
+  const cap = d.surse.modAn==='median'
+    ? `An de referință ${d.surse.anReferinta}, ales ca an tipic din intervalul 2013–2019.`
+    : `An de referință ${d.surse.anReferinta}, anul cu iarna cea mai slabă din 2013–2019. Dimensionăm pe scenariul prost, nu pe medie.`;
+
+  if(!d.feasible){
+    const mt=d.maximTestat;
+    panou.replaceChildren($(`<div>
+      <div class="verdict warn">
+        <h2>Nu recomandăm sistem independent la această locație</h2>
+        <p>${d.mesaj}</p>
+      </div>
+      <div class="figures">
+        <div class="fig"><div class="n">${nr(mt.kwp)} kWp</div><div class="l">Maxim testat</div></div>
+        <div class="fig"><div class="n">${nr(mt.batteryKwh)} kWh</div><div class="l">Baterii</div></div>
+        <div class="fig"><div class="n">${nr(mt.unservedHours)} h</div><div class="l">Tot rămân fără curent</div></div>
+        <div class="fig"><div class="n">${nr(mt.pret)} ${m}</div><div class="l">Ar fi costat</div></div>
+      </div>
+      <p class="sec">${cap} Cere o discuție și îți propunem varianta hibridă sau cu generator de rezervă.</p>
+      <div class="nav"><button class="btn ghost" id="bx">Schimbă datele</button>
+        <div style="display:flex;gap:10px"><button class="btn ghost" id="pdf">Salvează ca PDF</button><button class="btn" id="lead">Vreau o ofertă</button></div></div>
+      <div id="zonaForm"></div>
+      <div class="foot">Estimare orientativă, nu ofertă fermă. Necesită evaluare la fața locului.</div>
+    </div>`));
+  } else {
+    const s=d.sistem, pf=d.performanta, ec=d.economic;
+    const offgrid = d.topology==='offgrid';
+    // Textul de decembrie trebuie sa se potriveasca cu cifrele. La sisteme
+    // supradimensionate productia poate depasi consumul chiar si iarna, si
+    // atunci "diferenta vine din retea" e pur si simplu fals.
+    const dPv=d.decembrie.pv, dLoad=d.decembrie.load;
+    const decText = dPv < dLoad
+      ? `În decembrie sistemul produce ${nr(dPv)} kWh, iar clădirea cere ${nr(dLoad)} kWh. Restul vine din rețea${offgrid?', sau lipsește':''}. Nicio instalație fotovoltaică din Europa nu acoperă iarna la fel ca vara.`
+      : `În decembrie sistemul produce ${nr(dPv)} kWh, peste cei ${nr(dLoad)} kWh ceruți de clădire. Chiar și așa, producția e concentrată în orele de mijloc ale zilei, deci seara tot se ia din rețea.`;
+    panou.replaceChildren($(`<div>
+      <div class="verdict">
+        <div class="kwp">${s.kwp} kWp${s.batteryKwh?` + ${s.batteryKwh} kWh baterii`:''}</div>
+        <p>${s.panouri}, ${s.invertor}</p>
+      </div>
+      <div class="figures">
+        <div class="fig"><div class="n">${(pf.autosuficienta*100).toFixed(0)}%</div><div class="l">Din consum, acoperit de soare</div></div>
+        <div class="fig"><div class="n">${nr(ec.economieAnuala)} ${m}</div><div class="l">Economie pe an</div></div>
+        <div class="fig"><div class="n">${ec.amortizareAni.toFixed(1)} ani</div><div class="l">Se amortizează în</div></div>
+        ${offgrid?`<div class="fig"><div class="n">${nr(pf.oreDePana)} h</div><div class="l">Fără curent pe an</div></div>`:''}
+      </div>
+
+      ${d.tintaAtinsa===false?`<p class="sec" style="margin:-18px 0 26px">Mai mult nu se poate la această clădire: un sistem care să acopere ținta ar produce peste ce consumi într-un an, iar surplusul nu se plătește destul ca să merite. Cu baterii mai mari sau consum mutat spre orele de zi, procentul crește.</p>`:''}
+      <h2 class="sec">Lună cu lună</h2>
+      <p class="sec">${cap}</p>
+      ${grafic(d.lunar)}
+      <div class="legend">
+        <span><i style="background:var(--sun);border:1.2px solid var(--sun)"></i>Produci</span>
+        <span><i style="border:1.2px solid var(--frost)"></i>Consumi</span>
+      </div>
+      <p class="sec" style="margin-top:12px">${decText}</p>
+
+      <h2 class="sec" style="margin-top:32px">Ce cuprinde</h2>
+      <table>
+        <thead><tr><th>Componentă</th><th class="n">Buc.</th><th class="n">${m}</th></tr></thead>
+        <tbody>
+          ${d.bom.map(i=>{
+            const eticheta = {panou:'Panou',invertor:'Invertor',baterie:'Baterie',manopera:'Serviciu'}[i.tip] || '';
+            return `<tr><td>${eticheta?`<span style="color:var(--ink-faint);font-size:12px">${eticheta}</span><br>`:''}${i.nume}</td><td class="n">${i.cantitate}</td><td class="n">${nr(i.total)}</td></tr>`;
+          }).join('')}
+          <tr class="tot"><td>Total estimat</td><td></td><td class="n">${nr(ec.capex)}</td></tr>
+        </tbody>
+      </table>
+
+      <div class="nav"><button class="btn ghost" id="bx">Schimbă datele</button>
+        <div style="display:flex;gap:10px"><button class="btn ghost" id="pdf">Salvează ca PDF</button><button class="btn" id="lead">Vreau o ofertă</button></div></div>
+      <div id="zonaForm"></div>
+      <div class="foot">Estimare orientativă, nu ofertă fermă. Necesită evaluare la fața locului. Datele de radiație solară provin din PVGIS, Comisia Europeană. Procentul de autoconsum e o estimare bazată pe un profil tipic de consum.</div>
+    </div>`));
+  }
+  pregatestePrint(d);
+  panou.querySelector('#bx').onclick=()=>{document.getElementById('app').classList.remove('wide');setPas(3);};
+  panou.querySelector('#lead').onclick=()=>formularOferta(d);
+  panou.querySelector('#pdf').onclick=()=>window.print();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function deseneaza(){
+  document.getElementById('steps').classList.toggle('hide', !!S.rez && S.pas===3 && false);
+  panou.replaceChildren(S.pas===1?pas1():S.pas===2?pas2():pas3());
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,24 @@
+{
+  "name": "solar-engine",
+  "version": "0.4.1",
+  "description": "Calculator white-label de dimensionare fotovoltaica - motor, API si widget",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node src/server.js --mock",
+    "test": "node test/run.js && node test/sizing.js && node test/lead.js",
+    "validate": "node test/validate-pvgis.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "nodemailer": "^10.0.2",
+    "pg": "^8.13.1"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "overrides": {
+    "qs": "^6.16.0"
+  }
+}
